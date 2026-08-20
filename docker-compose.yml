@@ -1,0 +1,25 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: stayforlong-tech-challenge:local
+    environment:
+      HTTP_ADDRESS: :8080
+      HEALTHCHECK_URL: http://127.0.0.1:8080/healthz
+    ports:
+      - "127.0.0.1:${PORT:-8080}:8080"
+    init: true
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "/app/stayforlong", "healthcheck"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 3s

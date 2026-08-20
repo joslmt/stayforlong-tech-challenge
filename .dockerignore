@@ -1,0 +1,14 @@
+.git
+.github
+.idea
+.vscode
+.DS_Store
+bin
+node_modules
+coverage.out
+*.cover
+*.log
+docs
+README.md
+package.json
+package-lock.json
