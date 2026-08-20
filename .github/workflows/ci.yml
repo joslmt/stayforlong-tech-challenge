@@ -1,0 +1,204 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  GO_VERSION: 1.27.0
+
+jobs:
+  format:
+    name: Format and modules
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+      - name: Verify formatting
+        run: go run ./tools/gofmtcheck
+      - name: Verify module files are tidy
+        run: go mod tidy -diff
+
+  lint:
+    name: Linter
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+      - uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
+        with:
+          version: v2.13.0
+
+  vulnerabilities:
+    name: Go vulnerabilities
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: golang/govulncheck-action@032d45514ae346b1db93c04b0c90b841c370344f # v1.1.0
+        with:
+          go-version-input: ${{ env.GO_VERSION }}
+          go-package: ./...
+
+  unit-tests:
+    name: Unit tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+      - run: go mod verify
+      - name: Run core tests
+        run: >-
+          go test -mod=readonly -race -covermode=atomic
+          -coverpkg=./internal/booking/domain,./internal/booking/application
+          -coverprofile=unit.cover
+          ./internal/booking/domain ./internal/booking/application
+      - name: Enforce 90% core coverage
+        run: |
+          go tool cover -func=unit.cover
+          coverage="$(go tool cover -func=unit.cover | awk '/^total:/ {gsub(/%/, "", $3); print $3}')"
+          awk -v coverage="$coverage" 'BEGIN { if (coverage + 0 < 90) exit 1 }'
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: unit-coverage
+          path: unit.cover
+          retention-days: 7
+
+  integration-tests:
+    name: Integration tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+      - name: Run adapter and server tests
+        run: >-
+          go test -mod=readonly -race -covermode=atomic
+          -coverpkg=./internal/booking/adapters/in/http,./internal/bootstrap,./internal/platform/httpserver
+          -coverprofile=integration.cover
+          ./internal/booking/adapters/in/http ./internal/bootstrap ./internal/platform/httpserver
+      - name: Enforce 90% integration coverage
+        run: |
+          go tool cover -func=integration.cover
+          coverage="$(go tool cover -func=integration.cover | awk '/^total:/ {gsub(/%/, "", $3); print $3}')"
+          awk -v coverage="$coverage" 'BEGIN { if (coverage + 0 < 90) exit 1 }'
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: integration-coverage
+          path: integration.cover
+          retention-days: 7
+
+  contract:
+    name: OpenAPI contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npm run contract
+
+  frontend-tests:
+    name: Frontend tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npm run test:frontend
+
+  docker-build:
+    name: Docker build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: [format, lint, vulnerabilities, unit-tests, integration-tests, contract, frontend-tests]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
+      - uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        with:
+          context: .
+          push: false
+          tags: stayforlong-tech-challenge:${{ github.sha }}
+          outputs: type=docker,dest=${{ runner.temp }}/stayforlong-image.tar
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: production-image
+          path: ${{ runner.temp }}/stayforlong-image.tar
+          retention-days: 1
+
+  container-security:
+    name: Container security and SBOM
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: [docker-build]
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: production-image
+          path: ${{ runner.temp }}
+      - name: Load the exact image produced by Docker build
+        run: docker load --input "${{ runner.temp }}/stayforlong-image.tar"
+      - uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: stayforlong-tech-challenge:${{ github.sha }}
+          format: table
+          severity: CRITICAL,HIGH
+          exit-code: "1"
+          ignore-unfixed: true
+      - uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: stayforlong-tech-challenge:${{ github.sha }}
+          format: cyclonedx
+          output: sbom.cdx.json
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: container-sbom
+          path: sbom.cdx.json
+          retention-days: 7
+
+  e2e:
+    name: End-to-end tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: [docker-build]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+      - name: Run production-container E2E tests
+        run: go test -mod=readonly -tags=e2e -count=1 -v ./test/e2e
