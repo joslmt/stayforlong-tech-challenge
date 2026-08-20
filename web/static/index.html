@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="Interactive API playground for the Stayforlong backend technical challenge." />
+    <title>Stayforlong Tech Challenge</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="#playground" aria-label="Stayforlong Tech Challenge home">
+        <span class="brand-mark" aria-hidden="true">S</span>
+        <span>Stayforlong <strong>Tech Challenge</strong></span>
+      </a>
+      <nav class="tabs" aria-label="Primary navigation">
+        <button class="tab is-active" data-tab="playground">API playground</button>
+        <button class="tab" data-tab="faq">FAQs</button>
+      </nav>
+    </header>
+
+    <main>
+      <section id="playground" class="view is-active" aria-labelledby="playground-title">
+        <div class="hero">
+          <p class="eyebrow">Backend code challenge</p>
+          <h1 id="playground-title">Explore the booking API</h1>
+          <p>Choose an endpoint, edit the sample bookings, and execute a real request. Prefer the terminal? Copy the generated curl command.</p>
+        </div>
+
+        <div class="workspace">
+          <aside class="endpoint-list" aria-label="API endpoints">
+            <p class="section-label">Booking</p>
+            <button class="endpoint-item is-active" data-endpoint="data">
+              <span class="method">POST</span><span>/data</span>
+              <small>Profit per night</small>
+            </button>
+            <button class="endpoint-item" data-endpoint="revenue">
+              <span class="method">POST</span><span>/revenue</span>
+              <small>Optimal booking schedule</small>
+            </button>
+          </aside>
+
+          <div class="request-panel">
+            <div class="endpoint-heading">
+              <div><span class="method method-large">POST</span><code id="endpoint-path">/data</code></div>
+              <p id="endpoint-description">Calculate average, minimum, and maximum profit per night for every submitted booking.</p>
+            </div>
+
+            <div class="editor-block">
+              <div class="block-heading">
+                <div><span class="required">Required</span><h2>Request body</h2></div>
+                <button class="text-button" id="reset-example">Reset example</button>
+              </div>
+              <p class="hint">Content-Type: <code>application/json</code> · Array of booking requests</p>
+              <label class="sr-only" for="request-body">JSON request body</label>
+              <textarea id="request-body" spellcheck="false" aria-describedby="request-error"></textarea>
+              <p id="request-error" class="field-error" role="alert"></p>
+            </div>
+
+            <button id="execute" class="execute-button"><span>Execute request</span><span aria-hidden="true">→</span></button>
+
+            <div id="execution-feedback" class="execution-feedback" role="status" aria-live="assertive" hidden>
+              <span id="feedback-icon" class="feedback-icon" aria-hidden="true"></span>
+              <div>
+                <strong id="feedback-title"></strong>
+                <p id="feedback-message"></p>
+              </div>
+            </div>
+
+            <div class="curl-block">
+              <div class="block-heading"><h2>curl</h2><button class="copy-button" data-copy="curl-output">Copy</button></div>
+              <pre><code id="curl-output"></code></pre>
+            </div>
+
+            <div class="response-block" aria-live="polite">
+              <div class="block-heading">
+                <h2>Server response</h2>
+                <div><span id="response-time" class="response-time"></span><span id="response-status" class="status-pill">Not executed</span></div>
+              </div>
+              <div id="metric-cards" class="metrics" hidden></div>
+              <pre class="response-code"><code id="response-output">Run the request to see the response.</code></pre>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="faq" class="view faq-view" aria-labelledby="faq-title">
+        <div class="hero">
+          <p class="eyebrow">Decisions, without the jargon</p>
+          <h1 id="faq-title">Frequently asked questions</h1>
+          <p>The important business and technical choices behind this implementation.</p>
+        </div>
+        <div class="faq-grid">
+          <details open><summary>How is profit calculated?</summary><p>Profit is the whole-stay selling rate multiplied by its margin percentage. The API receives whole euros, calculates exactly internally, and rounds half-up to two decimal places only when writing the response.</p></details>
+          <details><summary>What does the data endpoint measure?</summary><p>It uses every booking in the request. The average is total profit divided by total nights; minimum and maximum compare each booking's profit per night.</p></details>
+          <details><summary>How does the revenue endpoint select bookings?</summary><p>It maximises occupied nights. If two schedules occupy the same number of nights, it chooses the most profitable one, then the schedule containing the earliest submitted request.</p></details>
+          <details><summary>How is the cleaning window handled?</summary><p>Check-out is 11:00, cleaning runs from 11:00 to 12:00, and check-in is 15:00. A new stay may therefore begin on the previous stay's checkout date.</p></details>
+          <details><summary>Why are request IDs returned chronologically?</summary><p>A schedule is easier to operate when it reads from earliest to latest. This is an explicit decision and differs from the apparent input ordering in one supplied example.</p></details>
+          <details><summary>Why is there no database?</summary><p>Both endpoints calculate a result solely from the current request. Persisting that temporary input would add failure modes without serving a business requirement.</p></details>
+          <details><summary>What input is accepted?</summary><p>Between 1 and 10,000 bookings, unique UUID v4 request IDs, valid calendar dates, 1–365 nights, positive whole-euro rates, and margins from 0% to 100%. Unknown JSON fields are rejected.</p></details>
+          <details><summary>Why must request IDs be UUID v4?</summary><p>A fixed identifier format gives every partner the same validation rule and avoids accepting ambiguous free-form IDs. UUIDs are compared case-insensitively and returned in canonical lowercase form.</p></details>
+          <details><summary>Can a zero-margin booking be selected?</summary><p>Yes. The primary goal is occupied nights, so a zero-profit stay is valid when it improves occupancy.</p></details>
+          <details><summary>Why can the live OAS look different?</summary><p>The published specifications disagree about integer versus decimal metrics and the scope of revenue statistics. This project follows the decimal, selected-schedule contract supplied with the challenge and documents every difference in the repository.</p></details>
+        </div>
+      </section>
+    </main>
+
+    <footer><span>Stayforlong Tech Challenge</span><span>Built with Go · Values shown in EUR</span></footer>
+    <script src="/api-client.js" defer></script>
+    <script src="/app.js" defer></script>
+  </body>
+</html>
