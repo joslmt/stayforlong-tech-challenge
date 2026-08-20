@@ -1,0 +1,16 @@
+# Go
+/bin/
+*.cover
+coverage.out
+
+# Node tooling
+node_modules/
+
+# Editors and operating systems
+.idea/
+.vscode/
+.DS_Store
+
+# Local runtime files
+*.log
+.tmp/
