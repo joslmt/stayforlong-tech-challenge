@@ -1,0 +1,178 @@
+openapi: 3.0.3
+info:
+  title: Stayforlong Tech Challenge API
+  version: 1.0.0
+  license:
+    name: Proprietary challenge submission
+    url: https://github.com/joslmt/stayforlong-tech-challenge
+  description: |
+    Calculates booking profit-per-night statistics and an occupancy-maximising schedule.
+    Monetary values are EUR and response metrics are rounded half-up to at most two decimals.
+servers:
+  - url: /
+security: []
+tags:
+  - name: Booking
+    description: Profit analysis and schedule optimisation for apartment booking requests.
+paths:
+  /data:
+    post:
+      tags: [Booking]
+      summary: Calculate profit-per-night statistics for all requests
+      operationId: calculateBookingData
+      requestBody:
+        $ref: '#/components/requestBodies/BookingRequestList'
+      responses:
+        '200':
+          description: Statistics calculated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DataResponse'
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /revenue:
+    post:
+      tags: [Booking]
+      summary: Build a schedule that maximises occupied nights
+      description: Equal occupancy prefers total profit and then earliest request input position. IDs are returned chronologically.
+      operationId: buildRevenueSchedule
+      requestBody:
+        $ref: '#/components/requestBodies/BookingRequestList'
+      responses:
+        '200':
+          description: Schedule selected successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RevenueResponse'
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '500':
+          $ref: '#/components/responses/InternalError'
+components:
+  requestBodies:
+    BookingRequestList:
+      required: true
+      description: Between 1 and 10,000 booking requests
+      content:
+        application/json:
+          schema:
+            type: array
+            minItems: 1
+            maxItems: 10000
+            items:
+              $ref: '#/components/schemas/BookingRequest'
+  responses:
+    InvalidRequest:
+      description: The submitted request is invalid
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            message: 'booking at index 0: nights must be between 1 and 365'
+    InternalError:
+      description: An unexpected internal error occurred
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            message: Internal server error
+  schemas:
+    BookingRequest:
+      type: object
+      additionalProperties: false
+      required: [request_id, check_in, nights, selling_rate, margin]
+      properties:
+        request_id:
+          type: string
+          format: uuid
+          minLength: 36
+          maxLength: 36
+          pattern: '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-4[0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$'
+          description: Unique UUID v4 identifier within this request.
+          example: 550e8400-e29b-41d4-a716-446655440000
+        check_in:
+          type: string
+          format: date
+          description: Calendar date when the stay starts.
+          example: '2026-09-01'
+        nights:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 365
+          description: Number of occupied nights.
+          example: 4
+        selling_rate:
+          type: integer
+          format: int32
+          minimum: 1
+          description: Retail price for the complete stay, in whole EUR.
+          example: 480
+        margin:
+          type: integer
+          format: int32
+          minimum: 0
+          maximum: 100
+          description: Profit percentage applied to the selling rate.
+          example: 20
+    DataResponse:
+      type: object
+      additionalProperties: false
+      required: [avg_night, min_night, max_night]
+      properties:
+        avg_night:
+          $ref: '#/components/schemas/EuroMetric'
+        min_night:
+          $ref: '#/components/schemas/EuroMetric'
+        max_night:
+          $ref: '#/components/schemas/EuroMetric'
+    RevenueResponse:
+      type: object
+      additionalProperties: false
+      required: [request_ids, total_profit, avg_night, min_night, max_night]
+      properties:
+        request_ids:
+          type: array
+          description: Selected IDs ordered chronologically by check-in.
+          items:
+            type: string
+            format: uuid
+            pattern: '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-4[0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$'
+          example: [550e8400-e29b-41d4-a716-446655440001, 550e8400-e29b-41d4-a716-446655440002]
+        total_profit:
+          allOf:
+            - $ref: '#/components/schemas/EuroMetric'
+          description: Total profit from selected bookings in EUR.
+        avg_night:
+          allOf:
+            - $ref: '#/components/schemas/EuroMetric'
+          description: Average selected profit per occupied night in EUR.
+        min_night:
+          allOf:
+            - $ref: '#/components/schemas/EuroMetric'
+          description: Lowest selected booking profit per night in EUR.
+        max_night:
+          allOf:
+            - $ref: '#/components/schemas/EuroMetric'
+          description: Highest selected booking profit per night in EUR.
+    EuroMetric:
+      type: number
+      format: float
+      multipleOf: 0.01
+      minimum: 0
+      example: 12.34
+    ErrorResponse:
+      type: object
+      additionalProperties: false
+      required: [message]
+      properties:
+        message:
+          type: string
+          minLength: 1
+          description: Human-friendly error message.
