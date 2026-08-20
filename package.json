@@ -1,8 +1,11 @@
 {
   "name": "stayforlong-tech-challenge-tooling",
+  "description": "Node.js tooling for OpenAPI validation and frontend tests for the Stayforlong Go technical challenge.",
   "private": true,
+  "license": "UNLICENSED",
   "scripts": {
-    "contract": "redocly lint api/openapi.yaml",
+    "test": "npm run lint:openapi && npm run test:frontend",
+    "lint:openapi": "redocly lint api/openapi.yaml",
     "test:frontend": "node --test web/test/api_client_test.cjs"
   },
   "devDependencies": {

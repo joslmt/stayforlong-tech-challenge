@@ -122,7 +122,7 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci --ignore-scripts
-      - run: npm run contract
+      - run: npm run lint:openapi
 
   frontend-tests:
     name: Frontend tests
