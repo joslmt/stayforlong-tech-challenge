@@ -16,7 +16,7 @@ else
 	CREATE_BIN := mkdir -p bin
 endif
 
-.PHONY: help start stop logs build run fmt fmt-check vet lint vuln test tests test-unit test-integration e2e
+.PHONY: help banner start stop logs build run fmt fmt-check vet lint vuln test tests test-unit test-integration e2e
 
 help:
 	@echo Usage: make target
@@ -37,7 +37,36 @@ help:
 	@echo   test-integration   Run HTTP integration tests
 	@echo   e2e                Run production-container E2E tests
 
-start:
+banner:
+ifeq ($(OS),Windows_NT)
+	${info   ____ _____  _ __   _______ ___  ____  _     ___  _   _  ____}
+	${info  / ___|_   _|/ \ \ / /  ___/ _ \|  _ \| |   / _ \| \ | |/ ___|}
+	${info  \___ \ | | / _ \ V /| |_ | | | | |_) | |  | | | |  \| | |  _}
+	${info   ___) || |/ ___ \| | |  _|| |_| |  _ <| |__| |_| | |\  | |_| |}
+	${info  |____/ |_/_/   \_\_| |_|   \___/|_| \_\_____\___/|_| \_|\____|}
+	${info }
+	${info    ____ _   _    _    _     _     _____ _   _  ____ _____}
+	${info   / ___| | | |  / \  | |   | |   | ____| \ | |/ ___| ____|}
+	${info  | |   | |_| | / _ \ | |   | |   |  _| |  \| | |  _|  _|}
+	${info  | |___|  _  |/ ___ \| |___| |___| |___| |\  | |_| | |___}
+	${info   \____|_| |_/_/   \_\_____|_____|_____|_| \_|\____|_____|}
+	@echo Playground: http://localhost:$(PORT)
+else
+	@printf '\033[38;2;237;36;113m%s\n' '  ____ _____  _ __   _______ ___  ____  _     ___  _   _  ____'
+	@printf '%s\n' ' / ___|_   _|/ \ \ / /  ___/ _ \|  _ \| |   / _ \| \ | |/ ___|'
+	@printf '%s\n' ' \___ \ | | / _ \ V /| |_ | | | | |_) | |  | | | |  \| | |  _'
+	@printf '%s\n' '  ___) || |/ ___ \| | |  _|| |_| |  _ <| |__| |_| | |\  | |_| |'
+	@printf '%s\n' ' |____/ |_/_/   \_\_| |_|   \___/|_| \_\_____\___/|_| \_|\____|'
+	@printf '\n'
+	@printf '%s\n' '   ____ _   _    _    _     _     _____ _   _  ____ _____'
+	@printf '%s\n' '  / ___| | | |  / \  | |   | |   | ____| \ | |/ ___| ____|'
+	@printf '%s\n' ' | |   | |_| | / _ \ | |   | |   |  _| |  \| | |  _|  _|'
+	@printf '%s\n' ' | |___|  _  |/ ___ \| |___| |___| |___| |\  | |_| | |___'
+	@printf '%s\033[0m\n' '  \____|_| |_/_/   \_\_____|_____|_____|_| \_|\____|_____|'
+	@printf 'Playground: http://localhost:$(PORT)\n'
+endif
+
+start: banner
 	docker compose up --build
 
 stop:
