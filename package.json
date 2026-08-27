@@ -9,7 +9,7 @@
     "test:frontend": "node --test web/test/api_client_test.cjs"
   },
   "devDependencies": {
-    "@redocly/cli": "2.46.2"
+    "@redocly/cli": "2.47.0"
   },
   "engines": {
     "node": ">=22"
