@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.18
 
-FROM golang:1.27.0-alpine3.23@sha256:3747dcba41c8b0db3211fda4db61638b980e17ac5bb3c94460a975a9cfe19395 AS dependencies
+FROM golang:1.27.4-alpine3.23@sha256:f70850ef6ce341e8b6427f677049145d63c0b7ce002d4d7e3d464828b1b96dcd AS dependencies
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download && go mod verify
